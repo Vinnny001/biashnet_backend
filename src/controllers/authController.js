@@ -36,5 +36,26 @@ export const authController = {
   resetPassword: asyncHandler(async (req, res) => {
     const result = await authService.resetPassword(req.body);
     res.json({ success: true, ...result });
-  })
+  }),
+
+  checkEmail: asyncHandler(async (req, res) => {
+  requireFields(req.body, ["email"]);
+  assertEmail(req.body.email);
+  const result = await authService.checkEmail(req.body.email);
+  res.json({ success: true, ...result });
+}),
+
+loginInitiate: asyncHandler(async (req, res) => {
+  requireFields(req.body, ["email", "password", "accountType"]);
+  assertEmail(req.body.email);
+  const result = await authService.loginInitiate(req.body);
+  res.json({ success: true, ...result });
+}),
+
+loginVerifyOtp: asyncHandler(async (req, res) => {
+  requireFields(req.body, ["email", "code"]);
+  assertEmail(req.body.email);
+  const session = await authService.loginVerifyOtp(req.body);
+  res.json({ success: true, ...session });
+})
 };

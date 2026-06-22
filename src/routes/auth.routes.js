@@ -12,4 +12,8 @@ router.get("/me", requireAuth, authController.me);
 router.post("/forgot-password", authLimiter, authController.forgotPassword);
 router.post("/reset-password", authLimiter, authController.resetPassword);
 
+router.post("/login/check-email", authLimiter, authController.checkEmail); // check if the email exist in users collection and returns the accounts owned by the email
+router.post("/login/initiate", authLimiter, authController.loginInitiate); // Sends the otp to the email
+router.post("/login/verify-otp", authLimiter, authController.loginVerifyOtp);
+
 export default router;

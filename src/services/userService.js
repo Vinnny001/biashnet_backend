@@ -87,5 +87,19 @@ export const userService = {
     await auth.deleteUser(uid);
     await usersRef.doc(uid).delete();
     return { id: uid };
-  }
+  },
+
+  async findByEmail(email) {
+  const snap = await db
+    .collection("users")
+    .where("email", "==", email.toLowerCase())
+    .limit(1)
+    .get();
+  if (snap.empty) return null;
+  return snap.docs[0].data();
+}
+
+  
 };
+
+
