@@ -10,10 +10,13 @@ function getBearerToken(req) {
   return header.slice("Bearer ".length).trim();
 }
 
-function getTrustedRole(authUser, profile) {
+function getTrustedRole(authUser, profile, jwtPayload) {
   if (authUser.customClaims?.role) return authUser.customClaims.role;
   if (authUser.customClaims?.admin) return ROLES.ADMIN;
-  return profile?.role || ROLES.BUYER;
+  if (profile?.role) return profile.role;
+  // for admins/investors who have no users doc, trust the signed JWT role
+  if (jwtPayload?.role) return jwtPayload.role;
+  return ROLES.BUYER;
 }
 
 export async function requireAuth(req, res, next) {
@@ -30,7 +33,7 @@ export async function requireAuth(req, res, next) {
 
     if (authUser.disabled) throw forbidden("This account has been disabled.");
 
-    const role = getTrustedRole(authUser, profile);
+    const role = getTrustedRole(authUser, profile, payload);
     req.auth = {
       uid: authUser.uid,
       email: authUser.email,
