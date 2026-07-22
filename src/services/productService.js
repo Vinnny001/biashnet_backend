@@ -8,7 +8,7 @@ const productsRef = db.collection(COLLECTIONS.PRODUCTS);
 
 export const productService = {
   async list(params = {}) {
-    const limit = toPositiveInt(params.limit, 20, 100);
+    const limit = toPositiveInt(params.limit, 200, 100);
     let query = productsRef.limit(limit);
 
     if (params.category) query = query.where("category", "==", params.category);
