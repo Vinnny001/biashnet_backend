@@ -43,7 +43,7 @@ export const productService = {
       ...pick(data, PUBLIC_PRODUCT_FIELDS),
       sellerId: actor.uid,
       sellerName: actor.name || actor.email,
-      status: actor.role === ROLES.ADMIN ? data.status || "active" : "pending",
+      status: actor.role === ROLES.ADMIN ? data.status || "active" : "active",
       createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp()
     });
