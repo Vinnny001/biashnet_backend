@@ -11,11 +11,15 @@ function getBearerToken(req) {
 }
 
 function getTrustedRole(authUser, profile, jwtPayload) {
-  if (authUser.customClaims?.role) return authUser.customClaims.role;
   if (authUser.customClaims?.admin) return ROLES.ADMIN;
-  if (profile?.role) return profile.role;
-  // for admins/investors who have no users doc, trust the signed JWT role
+
+  // The JWT contains the currently selected login role
   if (jwtPayload?.role) return jwtPayload.role;
+
+  if (authUser.customClaims?.role) return authUser.customClaims.role;
+
+  if (profile?.role) return profile.role;
+
   return ROLES.BUYER;
 }
 

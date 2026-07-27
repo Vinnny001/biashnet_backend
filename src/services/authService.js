@@ -226,10 +226,10 @@ export const authService = {
     return { token, user };
   },
 
-  async me(uid) {
+  async me(uid, activeRole) {
     const authUser = await auth.getUser(uid);
     const profile = await userService.findById(uid);
-    return publicUser(profile, authUser);
+    return publicUser(profile, authUser, activeRole);
   },
 
   async forgotPassword(email) {
