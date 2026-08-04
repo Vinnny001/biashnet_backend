@@ -8,12 +8,17 @@ const productsRef = db.collection(COLLECTIONS.PRODUCTS);
 
 export const productService = {
   async list(params = {}) {
-    const limit = toPositiveInt(params.limit, 200, 100);
-    let query = productsRef.limit(limit);
+    //const limit = toPositiveInt(params.limit, 200, 100);
+    let query = productsRef;
 
     if (params.category) query = query.where("category", "==", params.category);
     if (params.sellerId) query = query.where("sellerId", "==", params.sellerId);
     if (params.status) query = query.where("status", "==", params.status);
+
+     if (params.limit) {
+    query = query.limit(toPositiveInt(params.limit));
+  }
+
 
     const snapshot = await query.get();
     let products = serializeSnapshot(snapshot);
