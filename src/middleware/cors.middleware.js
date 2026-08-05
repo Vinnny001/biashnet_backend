@@ -7,11 +7,15 @@ const allowedOrigins = (process.env.CLIENT_URL || "http://localhost:5173")
 
 export const corsMiddleware = cors({
   origin(origin, callback) {
+    console.log("Request Origin:", origin);
+    console.log("Allowed Origins:", allowedOrigins);
+
     if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-      return;
+      console.log("✅ CORS Allowed");
+      return callback(null, true);
     }
 
+    console.log("❌ CORS Blocked");
     callback(new Error("Not allowed by CORS"));
   },
   credentials: true,
