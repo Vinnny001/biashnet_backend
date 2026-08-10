@@ -6,6 +6,7 @@ const router = Router();
 
 router.get("/", productController.list);
 router.get("/:id/reviews", productController.reviews);
+router.post("/:id/view", productController.trackView);
 router.get("/:id", productController.get);
 router.post("/", requireAuth, requireSellerOrAdmin, productController.create);
 router.patch("/:id", requireAuth, requireSellerOrAdmin, productController.update);

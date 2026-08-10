@@ -7,6 +7,10 @@ import { errorHandler, notFoundHandler } from "./middleware/errorHandler.js";
 import { requestLogger } from "./middleware/logging.js";
 import routes from "./routes/index.js";
 
+import cookieParser from "cookie-parser";
+import { viewerId } from "./middleware/viewerId.middleware.js";
+
+//console.log("NODE_ENV is:", JSON.stringify(process.env.NODE_ENV));
 const app = express();
 
 app.disable("x-powered-by");

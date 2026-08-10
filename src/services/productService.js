@@ -5,20 +5,19 @@ import { notFound } from "../utils/errors.js";
 import { toPositiveInt } from "../utils/validators.js";
 
 const productsRef = db.collection(COLLECTIONS.PRODUCTS);
+const VIEW_DEDUP_WINDOW_MS = 1000 * 60 * 60 * 12; // 12 hours
 
 export const productService = {
   async list(params = {}) {
-    //const limit = toPositiveInt(params.limit, 200, 100);
     let query = productsRef;
 
     if (params.category) query = query.where("category", "==", params.category);
     if (params.sellerId) query = query.where("sellerId", "==", params.sellerId);
     if (params.status) query = query.where("status", "==", params.status);
 
-     if (params.limit) {
-    query = query.limit(toPositiveInt(params.limit));
-  }
-
+    if (params.limit) {
+      query = query.limit(toPositiveInt(params.limit));
+    }
 
     const snapshot = await query.get();
     let products = serializeSnapshot(snapshot);
@@ -79,5 +78,45 @@ export const productService = {
   async reviews(id) {
     const snapshot = await productsRef.doc(id).collection("reviews").limit(50).get();
     return serializeSnapshot(snapshot);
-  }
+  },
+
+  async recordView(id, { viewerKey, authedUid } = {}) {
+  if (!viewerKey) return;
+
+  const productRef = productsRef.doc(id);
+  const viewLogId = String(viewerKey).replace(/[^a-zA-Z0-9_.-]/g, "_").slice(0, 500);
+  const viewLogRef = productRef.collection("viewLogs").doc(viewLogId);
+
+  await db.runTransaction(async (tx) => {
+    const [productSnap, viewLogSnap] = await Promise.all([
+      tx.get(productRef),
+      tx.get(viewLogRef)
+    ]);
+
+    if (!productSnap.exists) {
+      console.log("[recordView] product not found:", id);
+      return;
+    }
+
+    const product = productSnap.data();
+    const productSellerId = product.sellerId || product.userId;
+    console.log("[recordView] authedUid:", authedUid, "| productSellerId:", productSellerId, "| viewerKey:", viewerKey);
+
+    if (authedUid && productSellerId === authedUid) {
+      console.log("[recordView] SKIPPED: self-view");
+      return;
+    }
+
+    const now = Date.now();
+    const lastSeen = viewLogSnap.exists ? viewLogSnap.data().lastSeen : 0;
+    if (now - lastSeen < VIEW_DEDUP_WINDOW_MS) {
+      console.log("[recordView] SKIPPED: dedup window, lastSeen:", new Date(lastSeen));
+      return;
+    }
+
+    console.log("[recordView] INCREMENTING view count");
+    tx.set(viewLogRef, { lastSeen: now }, { merge: true });
+    tx.update(productRef, { views: FieldValue.increment(1) });
+  });
+}
 };

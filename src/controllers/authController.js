@@ -4,11 +4,18 @@ import { assertEmail, requireFields } from "../utils/validators.js";
 
 export const authController = {
   signup: asyncHandler(async (req, res) => {
-    requireFields(req.body, ["name", "email", "password"]);
-    assertEmail(req.body.email);
-    const session = await authService.signup(req.body);
-    res.status(201).json({ success: true, ...session });
-  }),
+  const { userType } = req.body;
+
+  requireFields(req.body, ["email", "password", "userType"]);
+  requireFields(
+    req.body,
+    userType === "business" ? ["businessName"] : ["firstName", "surname"]
+  );
+  assertEmail(req.body.email);
+
+  const session = await authService.signup(req.body);
+  res.status(201).json({ success: true, ...session });
+}),
 
   login: asyncHandler(async (req, res) => {
     requireFields(req.body, ["email", "password"]);

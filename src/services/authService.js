@@ -25,10 +25,12 @@ function publicUser(profile, fallback = {}, activeRole) {
     email: profile?.email || fallback.email,
     phone: profile?.phone || "",
     location: profile?.location || "",
+    userType: profile?.userType || null, // "individual" | "business"
     role,
     accountTypes,
     isAdmin: false,
-    isSeller: accountTypes.includes(ROLES.SELLER)
+    isSeller: accountTypes.includes(ROLES.SELLER),
+    isInvestor: accountTypes.includes(ROLES.INVESTOR)
   };
 }
 
@@ -132,10 +134,13 @@ async function buildSessionUser(email, accountType, authUser) {
 export const authService = {
   async signup(data) {
     const role = normalizeSignupRole(data.role);
+    const name = data.userType === "business"
+      ? data.businessName
+      : `${data.firstName ?? ""} ${data.surname ?? ""}`.trim();
     const authUser = await auth.createUser({
       email: data.email,
       password: data.password,
-      displayName: data.name,
+      displayName: name,
       disabled: false
     });
 
@@ -171,29 +176,36 @@ export const authService = {
   },
 
   async loginInitiate({ email, password, accountType }) {
-    const firebaseSession = await signInWithPassword(email, password);
-    const authUser = await auth.getUser(firebaseSession.localId);
-    if (authUser.disabled) throw unauthorized("This account has been disabled.");
+  const firebaseSession = await signInWithPassword(email, password);
+  const authUser = await auth.getUser(firebaseSession.localId);
+  if (authUser.disabled) throw unauthorized("This account has been disabled.");
 
-    const accountTypes = await getAccountTypesForEmail(email);
-    if (!accountTypes.includes(accountType)) {
-      throw badRequest("Selected account type is not available on this account.");
-    }
+  const accountTypes = await getAccountTypesForEmail(email);
+  if (!accountTypes.includes(accountType)) {
+    throw badRequest("Selected account type is not available on this account.");
+  }
 
-    const code = generateOtp();
-    await db.collection("loginOtps").doc(email.toLowerCase()).set({
-      uid: authUser.uid,
-      accountType,
-      codeHash: hashOtp(code),
-      attempts: 0,
-      expiresAt: Date.now() + OTP_TTL_MS,
-      createdAt: Date.now()
-    });
+  // Buyers skip OTP entirely — log them straight in
+  if (accountType === "buyer") {
+    const user = await buildSessionUser(email, accountType, authUser);
+    const token = signToken({ uid: authUser.uid, role: accountType });
+    return { skipOtp: true, token, user };
+  }
 
-    await sendOtpEmail(authUser.email, code);
+  const code = generateOtp();
+  await db.collection("loginOtps").doc(email.toLowerCase()).set({
+    uid: authUser.uid,
+    accountType,
+    codeHash: hashOtp(code),
+    attempts: 0,
+    expiresAt: Date.now() + OTP_TTL_MS,
+    createdAt: Date.now()
+  });
 
-    return { message: "We sent a verification code to your email." };
-  },
+  await sendOtpEmail(authUser.email, code);
+
+  return { skipOtp: false, message: "We sent a verification code to your email." };
+},
 
   async loginVerifyOtp({ email, code }) {
     const ref = db.collection("loginOtps").doc(email.toLowerCase());

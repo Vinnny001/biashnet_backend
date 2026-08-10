@@ -41,5 +41,19 @@ export const productController = {
   reviews: asyncHandler(async (req, res) => {
     const reviews = await productService.reviews(req.params.id);
     res.json({ success: true, data: reviews });
+  }),
+
+  trackView: asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const viewerKey = req.cookies?.viewerId || req.ip;
+    const authedUid = req.auth?.uid ?? null;
+
+    try {
+      await productService.recordView(id, { viewerKey, authedUid });
+    } catch (err) {
+      console.error("recordView failed:", err);
+    }
+
+    res.sendStatus(204);
   })
 };

@@ -16,7 +16,8 @@ export const COLLECTIONS = {
 export const ROLES = {
   ADMIN: "admin",
   SELLER: "seller",
-  BUYER: "buyer"
+  BUYER: "buyer",
+  INVESTOR: "investor"
 };
 
 export const ALLOWED_SIGNUP_ROLES = [ROLES.BUYER, ROLES.SELLER];

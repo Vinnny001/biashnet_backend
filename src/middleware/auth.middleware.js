@@ -51,7 +51,8 @@ export async function requireAuth(req, res, next) {
       role,
       ...profile,
       isAdmin: role === ROLES.ADMIN,
-      isSeller: role === ROLES.SELLER
+      isSeller: role === ROLES.SELLER,
+      isInvestor: role === ROLES.INVESTOR
     };
 
     next();
@@ -87,3 +88,4 @@ export function requireRole(...allowedRoles) {
 
 export const requireAdmin = requireRole(ROLES.ADMIN);
 export const requireSellerOrAdmin = requireRole(ROLES.SELLER, ROLES.ADMIN);
+export const requireInvestorOrAdmin = requireRole(ROLES.INVESTOR, ROLES.ADMIN);
