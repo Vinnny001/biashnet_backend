@@ -186,7 +186,7 @@ export const authService = {
   }
 
   // Buyers skip OTP entirely — log them straight in
-  if (accountType === "buyer") {
+  if (accountType === "buyer" || accountType === "seller") {
     const user = await buildSessionUser(email, accountType, authUser);
     const token = signToken({ uid: authUser.uid, role: accountType });
     return { skipOtp: true, token, user };

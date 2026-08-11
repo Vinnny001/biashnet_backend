@@ -10,7 +10,8 @@ export const COLLECTIONS = {
   CHATS: "chats",
   MESSAGES: "messages",
   PAYMENTS: "payments",
-  NOTIFICATIONS: "notifications"
+  NOTIFICATIONS: "notifications",
+  CART: "cart"
 };
 
 export const ROLES = {
@@ -37,3 +38,5 @@ export const PUBLIC_PRODUCT_FIELDS = [
   "createdAt",
   "updatedAt"
 ];
+
+

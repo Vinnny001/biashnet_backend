@@ -8,6 +8,9 @@ import productsRoutes from "./products.routes.js";
 import uploadRoutes from "./upload.routes.js";
 import usersRoutes from "./users.routes.js";
 
+import cartRoutes from "./cart.routes.js";
+
+
 const router = Router();
 
 router.get("/health", (req, res) => {
@@ -27,5 +30,7 @@ router.use("/chat", chatRoutes);
 router.use("/adverts", advertsRoutes);
 router.use("/upload", uploadRoutes);
 router.use("/payments", paymentsRoutes);
+
+router.use("/cart", cartRoutes);
 
 export default router;

@@ -16,4 +16,10 @@ router.post("/login/check-email", authLimiter, authController.checkEmail); // ch
 router.post("/login/initiate", authLimiter, authController.loginInitiate); // Sends the otp to the email
 router.post("/login/verify-otp", authLimiter, authController.loginVerifyOtp);
 
+router.get(
+  "/verify-upload",
+  requireAuth,
+  authController.verifyUpload
+);
+
 export default router;
