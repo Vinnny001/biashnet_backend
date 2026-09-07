@@ -1,15 +1,119 @@
 import { Router } from "express";
-import { orderController } from "../controllers/orderController.js";
-import { requireAuth } from "../middleware/auth.middleware.js";
+
+import {
+  orderController
+} from "../controllers/orderController.js";
+
+import {
+  requireAuth
+} from "../middleware/auth.middleware.js";
+
 
 const router = Router();
 
-router.use(requireAuth);
 
-router.get("/", orderController.list);      // buyer OR seller, filtered by role in service
-router.post("/", orderController.create);   // buyer
-router.get("/:id", orderController.get);     // buyer, seller-on-order, or admin
-router.patch("/:id", orderController.update);// buyer (full), seller-on-order (status/timeline only), admin (full)
-router.post("/:id/cancel", orderController.cancel); // buyer or admin only
+/*
+=========================================================
+ALL ORDER ROUTES REQUIRE AUTHENTICATION
+=========================================================
+*/
+
+router.use(
+  requireAuth
+);
+
+
+/*
+=========================================================
+MY ORDERS
+=========================================================
+
+IMPORTANT:
+
+This MUST come before:
+
+/:id
+
+Otherwise "mine" could be interpreted as an
+order ID.
+*/
+
+router.get(
+  "/mine",
+  orderController.mine
+);
+
+
+/*
+=========================================================
+GENERAL ORDER LIST
+=========================================================
+
+Buyer:
+    own orders
+
+Seller:
+    orders containing seller products
+
+Admin:
+    all orders
+
+The service determines the correct result based
+on req.auth.
+*/
+
+router.get(
+  "/",
+  orderController.list
+);
+
+
+/*
+=========================================================
+CREATE ORDER
+=========================================================
+*/
+
+router.post(
+  "/",
+  orderController.create
+);
+
+
+/*
+=========================================================
+SINGLE ORDER
+=========================================================
+*/
+
+router.get(
+  "/:id",
+  orderController.get
+);
+
+
+/*
+=========================================================
+UPDATE ORDER
+=========================================================
+*/
+
+router.patch(
+  "/:id",
+  orderController.update
+);
+
+
+/*
+=========================================================
+CANCEL ORDER
+=========================================================
+*/
+
+router.post(
+  "/:id/cancel",
+  orderController.cancel
+);
+
 
 export default router;

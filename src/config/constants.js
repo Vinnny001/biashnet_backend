@@ -5,7 +5,7 @@ export const IS_PRODUCTION = NODE_ENV === "production";
 export const COLLECTIONS = {
   USERS: "users",
   PRODUCTS: "products",
-  ORDERS: "orders",
+  ORDERS: "marketplaceOrders",
   ADVERTS: "adverts",
   CHATS: "chats",
   MESSAGES: "messages",
