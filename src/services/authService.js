@@ -4,7 +4,7 @@ import { signToken } from "../utils/jwt.js";
 import { badRequest, unauthorized } from "../utils/errors.js";
 import { normalizeSignupRole } from "../utils/validators.js";
 import { generateOtp, hashOtp, OTP_TTL_MS, OTP_MAX_ATTEMPTS } from "../utils/otp.js";
-import { sendOtpEmail } from "../utils/mailer.js";
+import { sendOtpEmail, sendPasswordResetEmail } from "../utils/mailer.js";
 import { userService } from "./userService.js";
 
 function getUserRoles(profile) {
@@ -245,8 +245,23 @@ export const authService = {
   },
 
   async forgotPassword(email) {
-    const link = await auth.generatePasswordResetLink(email);
-    return { message: "Password reset link generated.", link };
+    /*
+     * Never return the reset link in the API response, and never let the
+     * response shape reveal whether the account exists — both were live
+     * account-takeover / enumeration vectors. The link is emailed instead,
+     * and any failure (including "no user with that email") is swallowed
+     * behind the same generic response.
+     */
+    try {
+      const link = await auth.generatePasswordResetLink(email);
+      await sendPasswordResetEmail(email, link);
+    } catch (error) {
+      console.error("forgotPassword: failed to generate/send reset link:", error?.message || error);
+    }
+
+    return {
+      message: "If an account exists for that email, a password reset link has been sent."
+    };
   },
 
   async resetPassword() {

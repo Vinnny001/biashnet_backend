@@ -1,9 +1,30 @@
 import { COLLECTIONS, ROLES } from "../config/constants.js";
 import { db, FieldValue } from "../config/firebase.js";
 import { cleanObject, serializeDoc, serializeSnapshot } from "../utils/formatters.js";
-import { forbidden, notFound } from "../utils/errors.js";
+import { badRequest, forbidden, notFound } from "../utils/errors.js";
 
 const ordersRef = db.collection(COLLECTIONS.ORDERS);
+
+/*
+|--------------------------------------------------------------------------
+| ORDER STATUS
+|--------------------------------------------------------------------------
+|
+| The real order lifecycle (payment, escrow, delivery-code completion) is
+| owned by the separate biashnet-mpesa-api service, which writes this SAME
+| Firestore collection. This backend's status field must never be used to
+| fake payment/fulfillment state (a buyer or seller previously could PATCH
+| status to any string at all, including "paid"/"delivered"). Only a
+| fulfillment-only subset is writable here, and only by the seller on the
+| order; buyers cancel via the dedicated cancel() method below instead.
+|
+*/
+const SELLER_WRITABLE_STATUSES = [
+  "processing",
+  "ready_for_pickup",
+  "out_for_delivery",
+  "completed"
+];
 
 function canRead(order, actor) {
   const buyerId = order.userId || order.buyerId;
@@ -99,24 +120,45 @@ export const orderService = {
   /*
   |--------------------------------------------------------------------------
   | Sellers (not the buyer, not admin) can only touch fulfillment fields —
-  | never address/phone/notes, which belong to the buyer.
+  | never address/phone/notes, which belong to the buyer — and only to a
+  | fixed, fulfillment-only set of status values (see SELLER_WRITABLE_STATUSES
+  | above). Buyers cannot set status through this endpoint at all; they use
+  | the dedicated cancel() method. Admin is trusted and unrestricted.
   |--------------------------------------------------------------------------
   */
 
-  const updates = isAdmin || isOwner
-    ? {
-        status: data.status,
-        address: data.address,
-        phone: data.phone,
-        notes: data.notes,
-        timeline: data.timeline,
-        updatedAt: FieldValue.serverTimestamp()
-      }
-    : {
-        status: data.status,
-        timeline: data.timeline,
-        updatedAt: FieldValue.serverTimestamp()
-      };
+  let updates;
+
+  if (isAdmin) {
+    updates = {
+      status: data.status,
+      address: data.address,
+      phone: data.phone,
+      notes: data.notes,
+      timeline: data.timeline,
+      updatedAt: FieldValue.serverTimestamp()
+    };
+  } else if (isOwner) {
+    if (data.status !== undefined) {
+      throw badRequest("Use the cancel endpoint to cancel an order; status cannot be set directly.");
+    }
+    updates = {
+      address: data.address,
+      phone: data.phone,
+      notes: data.notes,
+      updatedAt: FieldValue.serverTimestamp()
+    };
+  } else {
+    if (data.status !== undefined && !SELLER_WRITABLE_STATUSES.includes(data.status)) {
+      throw badRequest(
+        `status must be one of: ${SELLER_WRITABLE_STATUSES.join(", ")}.`
+      );
+    }
+    updates = {
+      status: data.status,
+      updatedAt: FieldValue.serverTimestamp()
+    };
+  }
 
   await ordersRef.doc(id).set(cleanObject(updates), { merge: true });
   return this.findById(id, actor);

@@ -28,6 +28,22 @@ export async function sendMail({ to, subject, html, text }) {
   return transactionalEmailsApi.sendTransacEmail(payload);
 }
 
+export async function sendPasswordResetEmail(to, link) {
+  return sendMail({
+    to,
+    subject: "Reset your Biashnet password",
+    html: `
+      <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
+        <h2>Reset your password</h2>
+        <p>We received a request to reset your Biashnet password. Click the button below to choose a new one. This link expires shortly and can only be used once.</p>
+        <p><a href="${link}" style="display: inline-block; padding: 12px 20px; background: #111; color: #fff; text-decoration: none; border-radius: 6px;">Reset password</a></p>
+        <p>If you didn't request this, you can safely ignore this email — your password will not be changed.</p>
+      </div>
+    `,
+    text: `Reset your Biashnet password: ${link}\n\nIf you didn't request this, you can safely ignore this email.`
+  });
+}
+
 export async function sendOtpEmail(to, code) {
   return sendMail({
     to,

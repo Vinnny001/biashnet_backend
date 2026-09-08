@@ -152,7 +152,7 @@ export const userController = {
   updateMe: asyncHandler(async (req, res) => {
 
     const user =
-      await userService.update(
+      await userService.updateSelf(
         req.auth.uid,
         req.body
       );

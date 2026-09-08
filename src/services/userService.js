@@ -55,6 +55,40 @@ export const userService = {
     return this.createProfile(authUser.uid, { ...data, role });
   },
 
+  /*
+   * Self-service profile update. Callers of this method are
+   * updating their OWN profile via a route gated only by
+   * requireAuth (no admin check) — role/disabled must never
+   * be accepted here, or any user could grant themselves
+   * admin. Role/disabled changes go through update() below,
+   * which is only reachable via admin-gated routes.
+   */
+  async updateSelf(uid, data) {
+    const current = await this.findById(uid);
+    if (!current) throw notFound("User not found.");
+
+    const profileUpdates = cleanObject({
+      name: data.name,
+      displayName: data.name,
+      phone: data.phone,
+      location: data.location,
+      photoURL: data.photoURL,
+      updatedAt: FieldValue.serverTimestamp()
+    });
+
+    const authUpdates = cleanObject({
+      displayName: data.name,
+      photoURL: data.photoURL
+    });
+
+    if (Object.keys(authUpdates).length) {
+      await auth.updateUser(uid, authUpdates);
+    }
+
+    await usersRef.doc(uid).set(profileUpdates, { merge: true });
+    return this.findById(uid);
+  },
+
   async update(uid, data) {
     const current = await this.findById(uid);
     if (!current) throw notFound("User not found.");
