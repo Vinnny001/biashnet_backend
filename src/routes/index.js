@@ -1,11 +1,22 @@
 import { Router } from "express";
 
 import advertsRoutes from "./adverts.routes.js";
+import approvalsRoutes from "./approvals.routes.js";
 import authRoutes from "./auth.routes.js";
 import cartRoutes from "./cart.routes.js";
 import chatRoutes from "./chat.routes.js";
+import companyInfoRoutes from "./company-info.routes.js";
+import employeesRoutes from "./employees.routes.js";
+import expensesRoutes from "./expenses.routes.js";
+import financeWithdrawalsRoutes from "./finance-withdrawals.routes.js";
+import investorsRoutes from "./investors.routes.js";
+import { loanRouter, lenderRouter } from "./loans.routes.js";
+import logisticsRoutes from "./logistics.routes.js";
+import orderCompletionRoutes from "./order-completion.routes.js";
 import ordersRoutes from "./orders.routes.js";
 import paymentsRoutes from "./payments.routes.js";
+import payrollRoutes from "./payroll.routes.js";
+import positionsRoutes from "./positions.routes.js";
 import productsRoutes from "./products.routes.js";
 import sellerRoutes from "./seller.routes.js";
 import uploadRoutes from "./upload.routes.js";
@@ -263,6 +274,125 @@ ADVERTS
 router.use(
   "/adverts",
   advertsRoutes
+);
+
+
+/*
+=========================================================
+EMPLOYEES / HR
+=========================================================
+
+/api/employees
+
+GET /api/employees/me drives the "Employee" login option
+on the frontend.
+=========================================================
+*/
+
+router.use(
+  "/employees",
+  employeesRoutes
+);
+
+
+/*
+=========================================================
+POSITIONS
+=========================================================
+
+/api/positions
+=========================================================
+*/
+
+router.use(
+  "/positions",
+  positionsRoutes
+);
+
+
+/*
+=========================================================
+COMPANY INFO
+=========================================================
+
+/api/company-info
+=========================================================
+*/
+
+router.use(
+  "/company-info",
+  companyInfoRoutes
+);
+
+
+/*
+=========================================================
+APPROVALS (ROLE_CHANGE only — native)
+=========================================================
+
+/api/approvals
+=========================================================
+*/
+
+router.use(
+  "/approvals",
+  approvalsRoutes
+);
+
+
+/*
+=========================================================
+FINANCE PROXIES (money/escrow — mpesa-api owns the logic)
+=========================================================
+
+/api/expenses, /api/payroll, /api/loans, /api/lenders,
+/api/investors, /api/finance-withdrawals, /api/logistics,
+/api/marketplace/order-completion
+
+Thin server-to-server forwards to
+payment/biashnet-mpesa-api — see
+src/services/paymentApiClient.js.
+=========================================================
+*/
+
+router.use(
+  "/expenses",
+  expensesRoutes
+);
+
+router.use(
+  "/payroll",
+  payrollRoutes
+);
+
+router.use(
+  "/loans",
+  loanRouter
+);
+
+router.use(
+  "/lenders",
+  lenderRouter
+);
+
+router.use(
+  "/investors",
+  investorsRoutes
+);
+
+router.use(
+  "/finance-withdrawals",
+  financeWithdrawalsRoutes
+);
+
+router.use(
+  "/logistics",
+  logisticsRoutes
+);
+
+router.use(
+  "/marketplace/order-completion",
+  orderCompletionRoutes
 );
 
 
