@@ -66,9 +66,11 @@ export const productController = {
   list: asyncHandler(async (req, res) => {
 
     const products =
-      await productService.list(
-        req.query
-      );
+      await productService.list({
+        ...req.query,
+        includeUnavailable:
+          req.auth?.role === ROLES.ADMIN
+      });
 
 
     res.json({
@@ -164,6 +166,32 @@ export const productController = {
     }
 
 
+    /*
+    A product that isn't publicly available (pending
+    moderation, deactivated, etc.) can't be checked out —
+    so the public product page must not expose it either,
+    except to its own seller or an admin previewing it.
+    */
+
+    const isOwner =
+      req.auth &&
+      (product.sellerId === req.auth.uid ||
+        product.userId === req.auth.uid);
+
+    const isAdmin =
+      req.auth?.role === ROLES.ADMIN;
+
+    if (
+      !productService.isPubliclyAvailable(product) &&
+      !isOwner &&
+      !isAdmin
+    ) {
+      throw notFound(
+        "Product not found."
+      );
+    }
+
+
     res.json({
       success: true,
       data: product
@@ -233,6 +261,39 @@ export const productController = {
       success: true,
       message:
         "Product updated successfully.",
+      data: product
+    });
+
+  }),
+
+
+  /*
+  =======================================================
+  MODERATE PRODUCT (approve / reject)
+  =======================================================
+
+  PATCH /api/products/:id/status
+
+  Admin-only — gated by requireAdmin at the route level,
+  not by ensureCanModify (a seller must never approve
+  their own listing).
+  =======================================================
+  */
+
+  updateStatus: asyncHandler(async (req, res) => {
+
+    const product =
+      await productService.updateStatus(
+        req.params.id,
+        req.body.status,
+        req.auth.uid
+      );
+
+
+    res.json({
+      success: true,
+      message:
+        `Product ${req.body.status}.`,
       data: product
     });
 

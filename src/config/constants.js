@@ -23,6 +23,13 @@ export const ROLES = {
 
 export const ALLOWED_SIGNUP_ROLES = [ROLES.BUYER, ROLES.SELLER];
 
+/*
+ * "status" is deliberately excluded — it's the moderation field
+ * (pending/approved/rejected), only ever set at creation time or
+ * changed by an admin via PATCH /api/products/:id/status. A seller
+ * editing their own listing through the general update endpoint must
+ * never be able to self-approve by slipping it into the request body.
+ */
 export const PUBLIC_PRODUCT_FIELDS = [
   "name",
   "title",
@@ -34,9 +41,10 @@ export const PUBLIC_PRODUCT_FIELDS = [
   "images",
   "sellerId",
   "sellerName",
-  "status",
   "createdAt",
   "updatedAt"
 ];
+
+export const PRODUCT_MODERATION_STATUSES = ["approved", "rejected"];
 
 

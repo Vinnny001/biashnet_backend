@@ -5,6 +5,8 @@ import {
 } from "../controllers/productController.js";
 
 import {
+  optionalAuth,
+  requireAdmin,
   requireAuth,
   requireSellerOrAdmin
 } from "../middleware/auth.middleware.js";
@@ -28,6 +30,7 @@ Anyone can browse products.
 
 router.get(
   "/",
+  optionalAuth,
   productController.list
 );
 
@@ -90,6 +93,7 @@ SINGLE PRODUCT
 
 router.get(
   "/:id",
+  optionalAuth,
   productController.get
 );
 
@@ -119,6 +123,27 @@ router.patch(
   requireAuth,
   requireSellerOrAdmin,
   productController.update
+);
+
+
+/*
+=========================================================
+MODERATE PRODUCT (approve / reject)
+=========================================================
+
+PATCH /api/products/:id/status
+
+Admin-only — a seller must never be able to approve
+their own listing, so this deliberately does NOT use
+requireSellerOrAdmin.
+=========================================================
+*/
+
+router.patch(
+  "/:id/status",
+  requireAuth,
+  requireAdmin,
+  productController.updateStatus
 );
 
 

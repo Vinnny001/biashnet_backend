@@ -23,28 +23,28 @@ function getTrustedRole(authUser, profile, jwtPayload) {
   return ROLES.BUYER;
 }
 
-export async function requireAuth(req, res, next) {
-  try {
-    const token = getBearerToken(req);
-    const payload = verifyToken(token);
+async function resolveAuth(req) {
+  const token = getBearerToken(req);
+  const payload = verifyToken(token);
 
-    if (!payload.uid) throw unauthorized("Invalid token payload.");
+  if (!payload.uid) throw unauthorized("Invalid token payload.");
 
-    const [authUser, profile] = await Promise.all([
-      auth.getUser(payload.uid),
-      userService.findById(payload.uid)
-    ]);
+  const [authUser, profile] = await Promise.all([
+    auth.getUser(payload.uid),
+    userService.findById(payload.uid)
+  ]);
 
-    if (authUser.disabled) throw forbidden("This account has been disabled.");
+  if (authUser.disabled) throw forbidden("This account has been disabled.");
 
-    const role = getTrustedRole(authUser, profile, payload);
-    req.auth = {
+  const role = getTrustedRole(authUser, profile, payload);
+  return {
+    auth: {
       uid: authUser.uid,
       email: authUser.email,
       role,
       claims: authUser.customClaims || {}
-    };
-    req.user = {
+    },
+    user: {
       id: authUser.uid,
       uid: authUser.uid,
       email: authUser.email,
@@ -53,21 +53,42 @@ export async function requireAuth(req, res, next) {
       isAdmin: role === ROLES.ADMIN,
       isSeller: role === ROLES.SELLER,
       isInvestor: role === ROLES.INVESTOR
-    };
+    }
+  };
+}
 
+export async function requireAuth(req, res, next) {
+  try {
+    const resolved = await resolveAuth(req);
+    req.auth = resolved.auth;
+    req.user = resolved.user;
     next();
   } catch (error) {
     next(error.statusCode ? error : unauthorized(error.message));
   }
 }
 
-export function optionalAuth(req, res, next) {
+/*
+ * Genuinely optional: an anonymous caller, or one with a stale/invalid
+ * token, still proceeds — just without req.auth/req.user set. A route
+ * using this must never assume req.auth exists.
+ */
+export async function optionalAuth(req, res, next) {
   const token = getBearerToken(req);
   if (!token) {
     next();
     return;
   }
-  requireAuth(req, res, next);
+
+  try {
+    const resolved = await resolveAuth(req);
+    req.auth = resolved.auth;
+    req.user = resolved.user;
+  } catch {
+    // Invalid/expired token on an optional-auth route — proceed anonymously.
+  }
+
+  next();
 }
 
 export function requireRole(...allowedRoles) {
