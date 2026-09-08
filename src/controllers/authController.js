@@ -90,7 +90,7 @@ export const authController = {
   me: asyncHandler(async (req, res) => {
 
     const user =
-      await authService.me(req.auth.uid);
+      await authService.me(req.auth.uid, req.auth.role);
 
     res.json({
       success: true,

@@ -18,6 +18,7 @@ import paymentsRoutes from "./payments.routes.js";
 import payrollRoutes from "./payroll.routes.js";
 import positionsRoutes from "./positions.routes.js";
 import productsRoutes from "./products.routes.js";
+import reportsRoutes from "./reports.routes.js";
 import sellerRoutes from "./seller.routes.js";
 import uploadRoutes from "./upload.routes.js";
 import usersRoutes from "./users.routes.js";
@@ -337,6 +338,21 @@ APPROVALS (ROLE_CHANGE only — native)
 router.use(
   "/approvals",
   approvalsRoutes
+);
+
+
+/*
+=========================================================
+REPORTS (native — structured, role-scoped work reports)
+=========================================================
+
+/api/reports
+=========================================================
+*/
+
+router.use(
+  "/reports",
+  reportsRoutes
 );
 
 

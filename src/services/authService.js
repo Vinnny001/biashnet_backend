@@ -6,6 +6,7 @@ import { normalizeSignupRole } from "../utils/validators.js";
 import { generateOtp, hashOtp, OTP_TTL_MS, OTP_MAX_ATTEMPTS } from "../utils/otp.js";
 import { sendOtpEmail, sendPasswordResetEmail } from "../utils/mailer.js";
 import { userService } from "./userService.js";
+import { FINANCE_COLLECTIONS, EMPLOYMENT_STATUS } from "../config/financeCollections.js";
 
 function getUserRoles(profile) {
   if (!profile?.roles) return [];
@@ -71,15 +72,17 @@ async function resolveIdentity(email) {
   if (!userSnap.empty) {
     const profile = userSnap.docs[0].data();
     const userId = profile.userId || userSnap.docs[0].id;
-    const [adminDoc, investorDoc] = await Promise.all([
+    const [adminDoc, investorDoc, employeeDoc] = await Promise.all([
       db.collection("admins").doc(userId).get(),
-      db.collection("investors").doc(userId).get()
+      db.collection("investors").doc(userId).get(),
+      db.collection(FINANCE_COLLECTIONS.EMPLOYEES).doc(userId).get()
     ]);
     return {
       userId,
       profile,
       admin: adminDoc.exists ? adminDoc.data() : null,
-      investor: investorDoc.exists ? investorDoc.data() : null
+      investor: investorDoc.exists ? investorDoc.data() : null,
+      employee: employeeDoc.exists ? { id: employeeDoc.id, ...employeeDoc.data() } : null
     };
   }
 
@@ -90,8 +93,19 @@ async function resolveIdentity(email) {
 
   const admin = adminSnap.empty ? null : adminSnap.docs[0].data();
   const investor = investorSnap.empty ? null : investorSnap.docs[0].data();
+  const standaloneUserId = admin?.userId || investor?.userId || null;
 
-  return { userId: admin?.userId || investor?.userId || null, profile: null, admin, investor };
+  const employeeDoc = standaloneUserId
+    ? await db.collection(FINANCE_COLLECTIONS.EMPLOYEES).doc(standaloneUserId).get()
+    : null;
+
+  return {
+    userId: standaloneUserId,
+    profile: null,
+    admin,
+    investor,
+    employee: employeeDoc?.exists ? { id: employeeDoc.id, ...employeeDoc.data() } : null
+  };
 }
 
 async function getAccountTypesForEmail(email) {
@@ -99,6 +113,7 @@ async function getAccountTypesForEmail(email) {
   const types = [...getUserRoles(identity.profile)];
   if (identity.admin?.status === "active") types.push("admin");
   if (identity.investor?.status === "active") types.push("investor");
+  if (identity.employee?.employmentStatus === EMPLOYMENT_STATUS.ACTIVE) types.push("employee");
   return types;
 }
 
@@ -124,6 +139,17 @@ async function buildSessionUser(email, accountType, authUser) {
       role: "investor",
       totalInvested: identity.investor?.totalInvested || 0,
       contributionsCount: identity.investor?.contributionsCount || 0,
+      isAdmin: false
+    };
+  }
+
+  if (accountType === "employee") {
+    return {
+      uid: authUser.uid,
+      email: authUser.email,
+      name: identity.profile?.name || authUser.displayName || "",
+      role: "employee",
+      employeeRoles: identity.employee?.roles || {},
       isAdmin: false
     };
   }
