@@ -1,7 +1,7 @@
 import { COLLECTIONS, ROLES } from "../config/constants.js";
 import { auth, db, FieldValue } from "../config/firebase.js";
 import { cleanObject, serializeDoc, serializeSnapshot } from "../utils/formatters.js";
-import { notFound } from "../utils/errors.js";
+import { badRequest, notFound } from "../utils/errors.js";
 
 const usersRef = db.collection(COLLECTIONS.USERS);
 
@@ -120,6 +120,41 @@ export const userService = {
 
     await usersRef.doc(uid).set(profileUpdates, { merge: true });
     return this.findById(uid);
+  },
+
+  /*
+   * FCM device token for Android push notifications
+   * (Capacitor @capacitor/push-notifications). Stored as an
+   * array — a user can have more than one device. mpesa-api
+   * reads this same field directly (shared Firestore project)
+   * to send real pushes alongside its in-app notifications.
+   */
+  async registerDeviceToken(uid, token) {
+    if (!token) throw badRequest("Device token is required.");
+
+    await usersRef.doc(uid).set(
+      {
+        fcmTokens: FieldValue.arrayUnion(token),
+        updatedAt: FieldValue.serverTimestamp()
+      },
+      { merge: true }
+    );
+
+    return { success: true };
+  },
+
+  async removeDeviceToken(uid, token) {
+    if (!token) throw badRequest("Device token is required.");
+
+    await usersRef.doc(uid).set(
+      {
+        fcmTokens: FieldValue.arrayRemove(token),
+        updatedAt: FieldValue.serverTimestamp()
+      },
+      { merge: true }
+    );
+
+    return { success: true };
   },
 
   async remove(uid) {

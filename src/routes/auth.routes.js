@@ -16,6 +16,10 @@ router.post("/login/check-email", authLimiter, authController.checkEmail); // ch
 router.post("/login/initiate", authLimiter, authController.loginInitiate); // Sends the otp to the email
 router.post("/login/verify-otp", authLimiter, authController.loginVerifyOtp);
 
+// Switch the active account on an existing session (buyer <-> seller only —
+// admin/investor/work accounts require a fresh OTP login)
+router.post("/switch-account", requireAuth, authController.switchAccount);
+
 router.get(
   "/verify-upload",
   requireAuth,

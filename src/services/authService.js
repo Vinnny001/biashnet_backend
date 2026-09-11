@@ -1,12 +1,20 @@
 import { ROLES } from "../config/constants.js";
 import { auth, db } from "../config/firebase.js"; // make sure config/firebase.js exports `db` (getFirestore())
 import { signToken } from "../utils/jwt.js";
-import { badRequest, unauthorized } from "../utils/errors.js";
+import { badRequest, forbidden, unauthorized } from "../utils/errors.js";
 import { normalizeSignupRole } from "../utils/validators.js";
 import { generateOtp, hashOtp, OTP_TTL_MS, OTP_MAX_ATTEMPTS } from "../utils/otp.js";
 import { sendOtpEmail, sendPasswordResetEmail } from "../utils/mailer.js";
 import { userService } from "./userService.js";
 import { FINANCE_COLLECTIONS, EMPLOYMENT_STATUS } from "../config/financeCollections.js";
+
+/*
+ * Account types that don't require OTP at login. These are also the only
+ * ones switchAccount() will switch into on an existing session — the two
+ * MUST stay the same list, or switching would become a way to get a
+ * privileged token without the OTP step that login enforces.
+ */
+const SWITCHABLE_ACCOUNT_TYPES = ["buyer", "seller"];
 
 function getUserRoles(profile) {
   if (!profile?.roles) return [];
@@ -108,8 +116,7 @@ async function resolveIdentity(email) {
   };
 }
 
-async function getAccountTypesForEmail(email) {
-  const identity = await resolveIdentity(email);
+function accountTypesFromIdentity(identity) {
   const types = [...getUserRoles(identity.profile)];
   if (identity.admin?.status === "active") types.push("admin");
   if (identity.investor?.status === "active") types.push("investor");
@@ -117,8 +124,20 @@ async function getAccountTypesForEmail(email) {
   return types;
 }
 
+async function getAccountTypesForEmail(email) {
+  const identity = await resolveIdentity(email);
+  return accountTypesFromIdentity(identity);
+}
+
+/*
+ * Every branch returns accountTypes — the account switcher in the UI
+ * needs the full list of accounts this person owns regardless of which
+ * one they're currently signed into, and publicUser()'s own list only
+ * covers buyer/seller (it reads users/{uid}.roles).
+ */
 async function buildSessionUser(email, accountType, authUser) {
   const identity = await resolveIdentity(email);
+  const accountTypes = accountTypesFromIdentity(identity);
 
   if (accountType === "admin") {
     return {
@@ -127,6 +146,7 @@ async function buildSessionUser(email, accountType, authUser) {
       name: identity.admin?.name || authUser.displayName || "",
       role: "admin",
       permissions: identity.admin?.permissions || {},
+      accountTypes,
       isAdmin: true
     };
   }
@@ -139,6 +159,7 @@ async function buildSessionUser(email, accountType, authUser) {
       role: "investor",
       totalInvested: identity.investor?.totalInvested || 0,
       contributionsCount: identity.investor?.contributionsCount || 0,
+      accountTypes,
       isAdmin: false
     };
   }
@@ -150,11 +171,15 @@ async function buildSessionUser(email, accountType, authUser) {
       name: identity.profile?.name || authUser.displayName || "",
       role: "employee",
       employeeRoles: identity.employee?.roles || {},
+      accountTypes,
       isAdmin: false
     };
   }
 
-  return publicUser(identity.profile, authUser, accountType);
+  return {
+    ...publicUser(identity.profile, authUser, accountType),
+    accountTypes
+  };
 }
 
 export const authService = {
@@ -211,8 +236,8 @@ export const authService = {
     throw badRequest("Selected account type is not available on this account.");
   }
 
-  // Buyers skip OTP entirely — log them straight in
-  if (accountType === "buyer" || accountType === "seller") {
+  // Buyers/sellers skip OTP entirely — log them straight in
+  if (SWITCHABLE_ACCOUNT_TYPES.includes(accountType)) {
     const user = await buildSessionUser(email, accountType, authUser);
     const token = signToken({ uid: authUser.uid, role: accountType });
     return { skipOtp: true, token, user };
@@ -264,8 +289,52 @@ export const authService = {
     return { token, user };
   },
 
+  /*
+   * Switch the active account on an already-authenticated session.
+   *
+   * Only buyer/seller can be switched into directly, because those are
+   * exactly the account types loginInitiate lets through without OTP —
+   * so switching to them grants nothing a fresh login wouldn't. Admin,
+   * investor and employee (work) accounts all require OTP at login, so
+   * allowing a switch into them here would hand out a privileged token
+   * while skipping that second factor entirely.
+   */
+  async switchAccount({ uid, accountType }) {
+    const authUser = await auth.getUser(uid);
+    if (authUser.disabled) throw forbidden("This account has been disabled.");
+
+    if (!SWITCHABLE_ACCOUNT_TYPES.includes(accountType)) {
+      throw badRequest(
+        "For security, switching into that account requires signing in again."
+      );
+    }
+
+    const accountTypes = await getAccountTypesForEmail(authUser.email);
+    if (!accountTypes.includes(accountType)) {
+      throw badRequest("That account type is not available on this account.");
+    }
+
+    const user = await buildSessionUser(authUser.email, accountType, authUser);
+    const token = signToken({ uid, role: accountType });
+
+    return { token, user };
+  },
+
+  /*
+   * Session rehydration on page load. Must return the SAME shape a fresh
+   * login did, or a refresh silently downgrades the session: publicUser()
+   * alone only knows buyer/seller, so an admin/investor/employee would
+   * lose those from accountTypes (breaking the account switcher) and,
+   * without activeRole, get bounced back to whichever role happens to be
+   * first on their profile.
+   */
   async me(uid, activeRole) {
     const authUser = await auth.getUser(uid);
+
+    if (activeRole && authUser.email) {
+      return buildSessionUser(authUser.email, activeRole, authUser);
+    }
+
     const profile = await userService.findById(uid);
     return publicUser(profile, authUser, activeRole);
   },

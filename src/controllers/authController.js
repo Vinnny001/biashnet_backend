@@ -277,6 +277,44 @@ export const authController = {
       ...session
     });
 
+  }),
+
+
+  /*
+  |--------------------------------------------------------------------------
+  | SWITCH ACCOUNT
+  |--------------------------------------------------------------------------
+  |
+  | POST /api/auth/switch-account  { accountType }
+  |
+  | Issues a new token for another account type the same user already owns.
+  | Deliberately limited to buyer/seller — see authService.switchAccount.
+  |
+  */
+
+  switchAccount: asyncHandler(async (req, res) => {
+
+    requireFields(
+      req.body,
+      ["accountType"]
+    );
+
+    const session =
+      await authService.switchAccount({
+
+        uid:
+          req.auth.uid,
+
+        accountType:
+          req.body.accountType
+
+      });
+
+    res.json({
+      success: true,
+      ...session
+    });
+
   })
 
 };

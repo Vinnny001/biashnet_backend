@@ -55,6 +55,31 @@ router.patch(
 
 /*
 =========================================================
+DEVICE TOKEN (Android push notifications)
+=========================================================
+
+POST   /api/users/me/device-token   register (Capacitor
+                                     @capacitor/push-notifications
+                                     "registration" event)
+DELETE /api/users/me/device-token   unregister (e.g. on logout)
+=========================================================
+*/
+
+router.post(
+  "/me/device-token",
+  requireAuth,
+  userController.registerDeviceToken
+);
+
+router.delete(
+  "/me/device-token",
+  requireAuth,
+  userController.removeDeviceToken
+);
+
+
+/*
+=========================================================
 ADMIN USER MANAGEMENT
 =========================================================
 */

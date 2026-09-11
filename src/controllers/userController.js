@@ -167,6 +167,43 @@ export const userController = {
 
   /*
   =======================================================
+  DEVICE TOKEN (Android push notifications)
+  =======================================================
+  */
+
+  registerDeviceToken: asyncHandler(async (req, res) => {
+
+    const result =
+      await userService.registerDeviceToken(
+        req.auth.uid,
+        req.body?.token
+      );
+
+    res.json({
+      success: true,
+      ...result
+    });
+
+  }),
+
+  removeDeviceToken: asyncHandler(async (req, res) => {
+
+    const result =
+      await userService.removeDeviceToken(
+        req.auth.uid,
+        req.body?.token
+      );
+
+    res.json({
+      success: true,
+      ...result
+    });
+
+  }),
+
+
+  /*
+  =======================================================
   DELETE USER
   =======================================================
   */
