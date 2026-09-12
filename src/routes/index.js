@@ -12,6 +12,7 @@ import financeWithdrawalsRoutes from "./finance-withdrawals.routes.js";
 import investorsRoutes from "./investors.routes.js";
 import { loanRouter, lenderRouter } from "./loans.routes.js";
 import logisticsRoutes from "./logistics.routes.js";
+import notificationsRoutes from "./notifications.routes.js";
 import orderCompletionRoutes from "./order-completion.routes.js";
 import ordersRoutes from "./orders.routes.js";
 import paymentsRoutes from "./payments.routes.js";
@@ -409,6 +410,11 @@ router.use(
 router.use(
   "/marketplace/order-completion",
   orderCompletionRoutes
+);
+
+router.use(
+  "/notifications",
+  notificationsRoutes
 );
 
 
