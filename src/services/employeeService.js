@@ -117,6 +117,8 @@ export const employeeService = {
 
     await notificationService
       .create(employeeId, {
+        type: "ROLE_CHANGE_REQUESTED",
+        audience: "EMPLOYEE",
         title: "Role change requested",
         message: "HR has requested a role change for your account. It is awaiting CEO approval."
       })
@@ -135,6 +137,8 @@ export const employeeService = {
 
     await notificationService
       .create(employeeId, {
+        type: "ROLE_CHANGE_APPROVED",
+        audience: "EMPLOYEE",
         title: "Role change approved",
         message: "Your role change has been approved by the CEO and is now active."
       })

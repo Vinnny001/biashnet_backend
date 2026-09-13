@@ -83,6 +83,8 @@ export const reportService = {
     const report = snap.data();
     await notificationService
       .create(report.employeeId, {
+        type: "REPORT_REVIEWED",
+        audience: "EMPLOYEE",
         title: decision === REPORT_STATUS.ACKNOWLEDGED ? "Report acknowledged" : "Report flagged",
         message:
           decision === REPORT_STATUS.ACKNOWLEDGED

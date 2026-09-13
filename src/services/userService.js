@@ -132,6 +132,29 @@ export const userService = {
   async registerDeviceToken(uid, token) {
     if (!token) throw badRequest("Device token is required.");
 
+    /*
+     * A device belongs to whoever is signed in on it, and only them.
+     * This used to add the token to the new user without removing it
+     * from the previous one, so after switching accounts on a phone
+     * BOTH accounts' pushes kept arriving on it. Detach the token from
+     * every other user first — this also cleans up after a logout that
+     * never reached the server (offline, app killed).
+     *
+     * array-contains on a single field needs no composite index.
+     */
+    const previousOwners = await usersRef.where("fcmTokens", "array-contains", token).get();
+
+    const detach = previousOwners.docs
+      .filter((doc) => doc.id !== uid)
+      .map((doc) =>
+        doc.ref.update({
+          fcmTokens: FieldValue.arrayRemove(token),
+          updatedAt: FieldValue.serverTimestamp()
+        })
+      );
+
+    await Promise.all(detach);
+
     await usersRef.doc(uid).set(
       {
         fcmTokens: FieldValue.arrayUnion(token),
@@ -140,7 +163,7 @@ export const userService = {
       { merge: true }
     );
 
-    return { success: true };
+    return { success: true, detachedFrom: detach.length };
   },
 
   async removeDeviceToken(uid, token) {
