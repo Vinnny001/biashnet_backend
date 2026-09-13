@@ -104,10 +104,25 @@ CREATE PRODUCT
 =========================================================
 */
 
+/*
+Admin-only. Sellers create and edit listings through the
+upload server (POST/PATCH /upload/product), which is where
+review happens: new listings start "pending", edits to an
+approved listing send it back for review, and admins are
+notified either way.
+
+These used to accept sellers too, and created listings as
+"active" — live on the storefront with no review and no
+admin alert — while edits to approved listings were never
+re-reviewed. The app never called them, but any seller
+login could, so they are closed to sellers rather than
+maintaining a second copy of the review rules here.
+*/
+
 router.post(
   "/",
   requireAuth,
-  requireSellerOrAdmin,
+  requireAdmin,
   productController.create
 );
 
@@ -116,12 +131,15 @@ router.post(
 =========================================================
 UPDATE PRODUCT
 =========================================================
+
+Admin-only — see CREATE PRODUCT above.
+=========================================================
 */
 
 router.patch(
   "/:id",
   requireAuth,
-  requireSellerOrAdmin,
+  requireAdmin,
   productController.update
 );
 
