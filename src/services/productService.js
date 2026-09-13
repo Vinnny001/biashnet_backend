@@ -1,4 +1,10 @@
-import { COLLECTIONS, PRODUCT_MODERATION_STATUSES, PUBLIC_PRODUCT_FIELDS, ROLES } from "../config/constants.js";
+import {
+  COLLECTIONS,
+  PRODUCT_MODERATION_STATUSES,
+  PRODUCT_REVIEW_NOTE_MAX_LENGTH,
+  PUBLIC_PRODUCT_FIELDS,
+  ROLES
+} from "../config/constants.js";
 import { db, FieldValue } from "../config/firebase.js";
 import { cleanObject, pick, serializeDoc, serializeSnapshot } from "../utils/formatters.js";
 import { badRequest, notFound } from "../utils/errors.js";
@@ -143,10 +149,24 @@ export const productService = {
    * Admin-only moderation action — approve or reject a pending
    * listing. Deliberately separate from update() so a seller can
    * never reach this through the general product-edit endpoint.
+   *
+   * The note is the admin's message to the seller: required to reject,
+   * optional to approve. It replaces any earlier note, so an approval
+   * without one clears the reason a previous rejection gave.
    */
-  async updateStatus(id, status, reviewedBy) {
+  async updateStatus(id, status, reviewedBy, note) {
     if (!PRODUCT_MODERATION_STATUSES.includes(status)) {
       throw badRequest(`Status must be one of: ${PRODUCT_MODERATION_STATUSES.join(", ")}.`);
+    }
+
+    const reviewNote = typeof note === "string" ? note.trim() : "";
+
+    if (status === "rejected" && !reviewNote) {
+      throw badRequest("Add a note telling the seller why the listing was rejected.");
+    }
+
+    if (reviewNote.length > PRODUCT_REVIEW_NOTE_MAX_LENGTH) {
+      throw badRequest(`The note must be ${PRODUCT_REVIEW_NOTE_MAX_LENGTH} characters or fewer.`);
     }
 
     const current = await this.findById(id);
@@ -154,6 +174,7 @@ export const productService = {
 
     await productsRef.doc(id).update({
       status,
+      reviewNote: reviewNote || null,
       reviewedBy: reviewedBy || null,
       reviewedAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp()

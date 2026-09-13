@@ -47,4 +47,16 @@ export const PUBLIC_PRODUCT_FIELDS = [
 
 export const PRODUCT_MODERATION_STATUSES = ["approved", "rejected"];
 
+/*
+ * The admin's note to the seller on a moderation decision: required when
+ * rejecting (the seller has to know what to fix), optional when approving.
+ */
+export const PRODUCT_REVIEW_NOTE_MAX_LENGTH = 500;
+
+/*
+ * Moderation details only the listing's seller and admins may see — never
+ * buyers browsing the storefront.
+ */
+export const PRODUCT_REVIEW_FIELDS = ["reviewNote", "reviewedBy", "reviewedAt"];
+
 

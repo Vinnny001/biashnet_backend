@@ -1,14 +1,47 @@
-import { ROLES } from "../config/constants.js";
+import {
+  PRODUCT_REVIEW_FIELDS,
+  ROLES
+} from "../config/constants.js";
 
 import {
   productService
 } from "../services/productService.js";
 
 import {
+  notifySellerOfProductReview
+} from "../services/productReviewNotificationService.js";
+
+import {
   asyncHandler,
   forbidden,
   notFound
 } from "../utils/errors.js";
+
+import { logger } from "../utils/logger.js";
+
+
+/*
+=========================================================
+HIDE MODERATION DETAILS FROM BUYERS
+=========================================================
+
+An admin's note on a listing is written to its seller.
+Only that seller and admins get it back; anyone else
+browsing receives the product without it.
+=========================================================
+*/
+
+function withoutReviewDetails(product) {
+
+  const visible = { ...product };
+
+  PRODUCT_REVIEW_FIELDS.forEach(
+    (field) => delete visible[field]
+  );
+
+  return visible;
+
+}
 
 
 /*
@@ -65,17 +98,32 @@ export const productController = {
 
   list: asyncHandler(async (req, res) => {
 
+    const isAdmin =
+      req.auth?.role === ROLES.ADMIN;
+
     const products =
       await productService.list({
         ...req.query,
-        includeUnavailable:
-          req.auth?.role === ROLES.ADMIN
+        includeUnavailable: isAdmin
       });
+
+
+    /*
+    The seller dashboard lists its own products through
+    this route with ?sellerId=<their uid>.
+    */
+
+    const canSeeReviewDetails =
+      isAdmin ||
+      (req.auth?.uid &&
+        req.query.sellerId === req.auth.uid);
 
 
     res.json({
       success: true,
-      data: products
+      data: canSeeReviewDetails
+        ? products
+        : products.map(withoutReviewDetails)
     });
 
   }),
@@ -194,7 +242,9 @@ export const productController = {
 
     res.json({
       success: true,
-      data: product
+      data: isOwner || isAdmin
+        ? product
+        : withoutReviewDetails(product)
     });
 
   }),
@@ -277,23 +327,51 @@ export const productController = {
   Admin-only — gated by requireAdmin at the route level,
   not by ensureCanModify (a seller must never approve
   their own listing).
+
+  Body: { status: "approved" | "rejected", note }
+  The note is required to reject, optional to approve.
+
+  The seller is notified either way. The decision is
+  already saved by then, so a notification failure is
+  logged and reported back (sellerNotified: false)
+  rather than failing the request.
   =======================================================
   */
 
   updateStatus: asyncHandler(async (req, res) => {
 
+    const { status, note } =
+      req.body || {};
+
     const product =
       await productService.updateStatus(
         req.params.id,
-        req.body.status,
-        req.auth.uid
+        status,
+        req.auth.uid,
+        note
       );
+
+
+    const sellerNotified =
+      await notifySellerOfProductReview({
+        product,
+        status,
+        note: product.reviewNote
+      }).catch((error) => {
+        logger.error(
+          "Product review notification failed:",
+          product.id,
+          error.message
+        );
+        return false;
+      });
 
 
     res.json({
       success: true,
       message:
-        `Product ${req.body.status}.`,
+        `Product ${status}.`,
+      sellerNotified,
       data: product
     });
 
