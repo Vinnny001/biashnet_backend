@@ -33,30 +33,12 @@ const router = Router();
 HEALTH
 =========================================================
 
-GET /api/health
+GET /api/health and /api/health/ready now live in
+health.routes.js, mounted in app.js ahead of the request
+logger and rate limiter so health pings are never logged
+or rate-limited.
 =========================================================
 */
-
-router.get(
-  "/health",
-  (req, res) => {
-
-    res.json({
-
-      success: true,
-
-      status: "ok",
-
-      service:
-        "biashnet-api",
-
-      timestamp:
-        new Date().toISOString()
-
-    });
-
-  }
-);
 
 
 /*

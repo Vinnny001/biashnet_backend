@@ -6,6 +6,7 @@ import { corsMiddleware } from "./middleware/cors.middleware.js";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler.js";
 import { requestLogger } from "./middleware/logging.js";
 import routes from "./routes/index.js";
+import healthRoutes from "./routes/health.routes.js";
 
 import cookieParser from "cookie-parser";
 import { viewerId } from "./middleware/viewerId.middleware.js";
@@ -20,6 +21,11 @@ app.use(
   })
 );
 app.use(corsMiddleware);
+
+// Before logging and rate limiting — see routes/health.routes.js.
+app.use(healthRoutes);
+app.use("/api", healthRoutes);
+
 app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: true, limit: "1mb" }));
 app.use(requestLogger);
