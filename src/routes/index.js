@@ -23,6 +23,7 @@ import reportsRoutes from "./reports.routes.js";
 import sellerRoutes from "./seller.routes.js";
 import uploadRoutes from "./upload.routes.js";
 import usersRoutes from "./users.routes.js";
+import wishlistRoutes from "./wishlist.routes.js";
 
 
 const router = Router();
@@ -191,6 +192,21 @@ CART
 router.use(
   "/cart",
   cartRoutes
+);
+
+
+/*
+=========================================================
+WISHLIST
+=========================================================
+
+/api/wishlist — a buyer's liked listings.
+=========================================================
+*/
+
+router.use(
+  "/wishlist",
+  wishlistRoutes
 );
 
 

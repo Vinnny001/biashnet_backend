@@ -2,12 +2,14 @@ import {
   COLLECTIONS,
   PRODUCT_MODERATION_STATUSES,
   PRODUCT_REVIEW_NOTE_MAX_LENGTH,
+  PRODUCT_REVIEWS_SUBCOLLECTION,
   PUBLIC_PRODUCT_FIELDS,
+  REVIEW_COMMENT_MAX_LENGTH,
   ROLES
 } from "../config/constants.js";
 import { db, FieldValue } from "../config/firebase.js";
 import { cleanObject, pick, serializeDoc, serializeSnapshot } from "../utils/formatters.js";
-import { badRequest, notFound } from "../utils/errors.js";
+import { badRequest, forbidden, notFound } from "../utils/errors.js";
 import { toPositiveInt } from "../utils/validators.js";
 
 const productsRef = db.collection(COLLECTIONS.PRODUCTS);
@@ -184,8 +186,115 @@ export const productService = {
   },
 
   async reviews(id) {
-    const snapshot = await productsRef.doc(id).collection("reviews").limit(50).get();
-    return serializeSnapshot(snapshot);
+    const snapshot = await productsRef
+      .doc(id)
+      .collection(PRODUCT_REVIEWS_SUBCOLLECTION)
+      .limit(50)
+      .get();
+
+    // Newest first, sorted here so no composite index is needed.
+    return serializeSnapshot(snapshot).sort(
+      (a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)
+    );
+  },
+
+  /*
+   * Has this buyer actually received this listing? Only then may they
+   * review it, which is what stops a seller's friends — or a competitor —
+   * from rating a listing nobody bought.
+   *
+   * COMPLETED is the order's final state, reached when the buyer's
+   * delivery code is entered on hand-over. Orders come in two shapes: the
+   * current one lists items[].listingId, the older single-item one puts
+   * listingId at the top level. Both count.
+   */
+  async hasPurchased(userId, productId) {
+    if (!userId || !productId) return false;
+
+    const snapshot = await db
+      .collection(COLLECTIONS.ORDERS)
+      .where("buyerId", "==", userId)
+      .where("status", "==", "COMPLETED")
+      .get();
+
+    return snapshot.docs.some((doc) => {
+      const order = doc.data();
+
+      if (order.listingId === productId) return true;
+
+      return (order.items || []).some(
+        (item) => item?.listingId === productId || item?.productId === productId
+      );
+    });
+  },
+
+  /*
+   * A buyer's review of a listing they have received. The document id is
+   * the buyer's uid, so leaving a second review edits the first instead of
+   * stacking up, and the listing's own rating/reviewCount (fields the
+   * product page and the older Biashnet app both read) are recalculated
+   * from what's stored.
+   */
+  async addReview(id, { userId, author, rating, comment }) {
+    const score = Number(rating);
+
+    if (!Number.isInteger(score) || score < 1 || score > 5) {
+      throw badRequest("Give the product a rating from 1 to 5 stars.");
+    }
+
+    const text = typeof comment === "string" ? comment.trim() : "";
+
+    if (text.length > REVIEW_COMMENT_MAX_LENGTH) {
+      throw badRequest(`Your review must be ${REVIEW_COMMENT_MAX_LENGTH} characters or fewer.`);
+    }
+
+    const product = await this.findById(id);
+    if (!product) throw notFound("Product not found.");
+
+    if (!(await this.hasPurchased(userId, id))) {
+      throw forbidden(
+        "You can review this product once an order you placed for it has been delivered."
+      );
+    }
+
+    const reviewsRef = productsRef.doc(id).collection(PRODUCT_REVIEWS_SUBCOLLECTION);
+    const existing = await reviewsRef.doc(userId).get();
+
+    await reviewsRef.doc(userId).set(
+      cleanObject({
+        userId,
+        author: author || "Customer",
+        rating: score,
+        comment: text || null,
+        createdAt: existing.exists
+          ? existing.data().createdAt
+          : FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp()
+      }),
+      { merge: true }
+    );
+
+    const all = await reviewsRef.get();
+    const scores = all.docs
+      .map((doc) => Number(doc.data().rating))
+      .filter((value) => Number.isFinite(value));
+
+    const average = scores.length
+      ? Math.round((scores.reduce((sum, value) => sum + value, 0) / scores.length) * 10) / 10
+      : 0;
+
+    await productsRef.doc(id).update({
+      rating: average,
+      reviewCount: scores.length,
+      updatedAt: FieldValue.serverTimestamp()
+    });
+
+    return {
+      review: { id: userId, userId, author: author || "Customer", rating: score, comment: text || null },
+      rating: average,
+      reviewCount: scores.length,
+      edited: existing.exists
+    };
   },
 
   async recordView(id, { viewerKey, authedUid } = {}) {

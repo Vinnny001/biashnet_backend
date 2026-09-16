@@ -108,5 +108,11 @@ export function requireRole(...allowedRoles) {
 }
 
 export const requireAdmin = requireRole(ROLES.ADMIN);
+/*
+ * Liking a listing and reviewing it are a shopper's actions: only an
+ * account signed in as a buyer may do either. A seller (or an admin)
+ * signed into their own account is deliberately refused.
+ */
+export const requireBuyer = requireRole(ROLES.BUYER);
 export const requireSellerOrAdmin = requireRole(ROLES.SELLER, ROLES.ADMIN);
 export const requireInvestorOrAdmin = requireRole(ROLES.INVESTOR, ROLES.ADMIN);

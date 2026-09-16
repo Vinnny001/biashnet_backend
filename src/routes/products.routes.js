@@ -8,6 +8,7 @@ import {
   optionalAuth,
   requireAdmin,
   requireAuth,
+  requireBuyer,
   requireSellerOrAdmin
 } from "../middleware/auth.middleware.js";
 
@@ -62,9 +63,38 @@ PRODUCT REVIEWS
 =========================================================
 */
 
+/*
+Signed-in only. The star rating and how many reviews
+a listing has stay public (they ride along with the
+listing), but reading what shoppers wrote is for people
+with an account.
+*/
+
 router.get(
   "/:id/reviews",
+  requireAuth,
   productController.reviews
+);
+
+
+/*
+=========================================================
+LEAVE A REVIEW
+=========================================================
+
+POST /api/products/:id/reviews
+
+Buyer-only: reviewing is a shopper's action, so a seller
+(who could otherwise review their own listing) or an
+admin is refused.
+=========================================================
+*/
+
+router.post(
+  "/:id/reviews",
+  requireAuth,
+  requireBuyer,
+  productController.addReview
 );
 
 

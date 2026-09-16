@@ -11,8 +11,22 @@ export const COLLECTIONS = {
   MESSAGES: "messages",
   PAYMENTS: "payments",
   NOTIFICATIONS: "notifications",
-  CART: "cart"
+  CART: "cart",
+  /*
+   * A buyer's liked listings. New collection rather than a field on the
+   * product or the user, so a like is one small document that other
+   * services reading `products` or `users` never see change.
+   */
+  PRODUCT_LIKES: "marketplaceProductLikes"
 };
+
+/*
+ * A buyer may leave one review per listing, stored under the listing
+ * itself (products/{id}/reviews/{buyerUid}) — which is where the product
+ * page already reads them from.
+ */
+export const PRODUCT_REVIEWS_SUBCOLLECTION = "reviews";
+export const REVIEW_COMMENT_MAX_LENGTH = 1000;
 
 export const ROLES = {
   ADMIN: "admin",

@@ -240,8 +240,25 @@ export const productController = {
     }
 
 
+    /*
+    Whether this shopper may review it, so the product
+    page can offer the form only to someone whose order
+    for it has been delivered — instead of letting them
+    write a review and then refusing it.
+    */
+
+    const canReview =
+      req.auth?.role === ROLES.BUYER
+        ? await productService.hasPurchased(
+            req.auth.uid,
+            req.params.id
+          )
+        : false;
+
+
     res.json({
       success: true,
+      canReview,
       data: isOwner || isAdmin
         ? product
         : withoutReviewDetails(product)
@@ -373,6 +390,55 @@ export const productController = {
         `Product ${status}.`,
       sellerNotified,
       data: product
+    });
+
+  }),
+
+
+  /*
+  =======================================================
+  LEAVE A REVIEW
+  =======================================================
+
+  POST /api/products/:id/reviews
+
+  Buyer-only, gated by requireBuyer at the route level.
+  One review per buyer per listing: posting again edits
+  the one they already left.
+  =======================================================
+  */
+
+  addReview: asyncHandler(async (req, res) => {
+
+    const result =
+      await productService.addReview(
+        req.params.id,
+        {
+
+          userId:
+            req.auth.uid,
+
+          author:
+            req.user?.name ||
+            req.auth.email ||
+            "Customer",
+
+          rating:
+            req.body?.rating,
+
+          comment:
+            req.body?.comment,
+
+        }
+      );
+
+
+    res.json({
+      success: true,
+      message: result.edited
+        ? "Your review has been updated."
+        : "Thanks for your review.",
+      data: result
     });
 
   }),
