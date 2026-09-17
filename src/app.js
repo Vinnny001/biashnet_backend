@@ -15,6 +15,14 @@ import { viewerId } from "./middleware/viewerId.middleware.js";
 const app = express();
 
 app.disable("x-powered-by");
+
+/*
+ * Render (and any host) puts a proxy in front of us, so the socket's
+ * address is the proxy's, not the caller's. Without this every user
+ * looks like the same one to the rate limiter and they share a single
+ * allowance. 1 = trust the single hop in front of this app.
+ */
+app.set("trust proxy", 1);
 app.use(
   helmet({
     crossOriginResourcePolicy: { policy: "cross-origin" }
