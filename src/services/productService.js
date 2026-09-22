@@ -16,6 +16,65 @@ const productsRef = db.collection(COLLECTIONS.PRODUCTS);
 const VIEW_DEDUP_WINDOW_MS = 1000 * 60 * 60 * 12; // 12 hours
 
 /*
+|--------------------------------------------------------------------------
+| Browsing the storefront
+|--------------------------------------------------------------------------
+|
+| A product record carries far more than a product card shows: the full
+| description, the search keywords, the promotion record, every image in
+| five sizes each. Sending all of it for every listing made the
+| storefront 446 KB — most of it never read, and all of it parsed on a
+| phone before the first card appeared.
+|
+| So public browsing asks Firestore for these fields only, and keeps one
+| image (the only one a card can show). The product page still loads the
+| whole record.
+|
+*/
+
+const CARD_FIELDS = [
+  "title", "name", "price", "markedPrice", "oldPrice", "discount",
+  "category", "subCategory", "condition", "location", "stock",
+  "images", "rating", "reviewCount", "likeCount", "views",
+  "flashSale", "flashSalePrice", "flashSaleStart", "flashSaleEnd",
+  "promoted", "sellerName", "sellerId", "userId", "verified",
+  "sellerVerified", "service", "status", "isActive", "createdAt", "updatedAt"
+];
+
+// Only the two sizes ProductCard reads, out of the five each image carries.
+function cardImage(image) {
+  if (!image || typeof image !== "object") return image;
+  return { thumb: image.thumb || image.full, full: image.full || image.thumb };
+}
+
+function toCard(product) {
+  const images = Array.isArray(product.images) ? product.images.slice(0, 1) : [];
+  return { ...product, images: images.map(cardImage) };
+}
+
+/*
+ * The storefront is the same for everyone and changes rarely, so the
+ * answer is held briefly instead of re-reading every product per visitor.
+ * Any write below clears it, so an approved listing appears at once
+ * rather than up to a minute later.
+ */
+const CACHE_TTL_MS = 60 * 1000;
+const listCache = new Map();
+
+function cached(key, load) {
+  const hit = listCache.get(key);
+  if (hit && hit.expires > Date.now()) return hit.value;
+
+  const value = load();
+  listCache.set(key, { value, expires: Date.now() + CACHE_TTL_MS });
+  return value;
+}
+
+function clearListCache() {
+  listCache.clear();
+}
+
+/*
  * Mirrors payment/biashnet-mpesa-api's checkoutService.js
  * isProductAvailable() exactly — a product that can't pass this can't be
  * checked out, so public browsing (home, search, wishlist, category
@@ -59,21 +118,39 @@ export const productService = {
       products = Array.from(merged.values());
 
     } else {
-      let query = productsRef;
-
-      if (params.category) query = query.where("category", "==", params.category);
-      if (params.status) query = query.where("status", "==", params.status);
-
       /*
       | No Firestore-level .limit() here — the public-availability filter
       | below runs client-side (same composite-index-avoidance convention
       | as the sellerId branch), so limiting the raw query first could
       | under-return fewer available products than actually exist. The
       | requested limit is applied client-side, after filtering, instead.
+      |
+      | What IS narrowed is the fields: browsing asks for card fields
+      | only, plus the description when there's something to search in it.
       */
 
-      const snapshot = await query.get();
-      products = serializeSnapshot(snapshot);
+      const fields = params.q ? [...CARD_FIELDS, "description"] : CARD_FIELDS;
+
+      const key = JSON.stringify([
+        params.category || "",
+        params.status || "",
+        Boolean(params.includeUnavailable),
+        Boolean(params.q)
+      ]);
+
+      products = await cached(key, async () => {
+        let query = productsRef;
+
+        if (params.category) query = query.where("category", "==", params.category);
+        if (params.status) query = query.where("status", "==", params.status);
+
+        const snapshot = await query.select(...fields).get();
+
+        return serializeSnapshot(snapshot).map(toCard);
+      });
+
+      // The cached array is shared; sorting or slicing must not touch it.
+      products = [...products];
     }
 
     if (params.status && params.sellerId) {
@@ -125,6 +202,7 @@ export const productService = {
     });
 
     const doc = await productsRef.add(payload);
+    clearListCache();
     return this.findById(doc.id);
   },
 
@@ -139,11 +217,13 @@ export const productService = {
       }),
       { merge: true }
     );
+    clearListCache();
     return this.findById(id);
   },
 
   async remove(id) {
     await productsRef.doc(id).delete();
+    clearListCache();
     return { id };
   },
 
@@ -181,6 +261,8 @@ export const productService = {
       reviewedAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp()
     });
+
+    clearListCache();
 
     return this.findById(id);
   },
@@ -288,6 +370,8 @@ export const productService = {
       reviewCount: scores.length,
       updatedAt: FieldValue.serverTimestamp()
     });
+
+    clearListCache();
 
     return {
       review: { id: userId, userId, author: author || "Customer", rating: score, comment: text || null },
