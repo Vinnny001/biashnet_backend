@@ -38,7 +38,14 @@ const CARD_FIELDS = [
   "images", "rating", "reviewCount", "likeCount", "views",
   "flashSale", "flashSalePrice", "flashSaleStart", "flashSaleEnd",
   "promoted", "sellerName", "sellerId", "userId", "verified",
-  "sellerVerified", "service", "status", "isActive", "createdAt", "updatedAt"
+  "sellerVerified", "service", "status", "isActive", "createdAt", "updatedAt",
+
+  /*
+   * Why the automatic check would not approve a listing, so the admin
+   * moderation list can show it without opening each one. Stripped from
+   * buyer-facing responses by PRODUCT_REVIEW_FIELDS — a buyer never sees it.
+   */
+  "policyReview"
 ];
 
 // Only the two sizes ProductCard reads, out of the five each image carries.

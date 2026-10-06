@@ -71,6 +71,6 @@ export const PRODUCT_REVIEW_NOTE_MAX_LENGTH = 500;
  * Moderation details only the listing's seller and admins may see — never
  * buyers browsing the storefront.
  */
-export const PRODUCT_REVIEW_FIELDS = ["reviewNote", "reviewedBy", "reviewedAt"];
+export const PRODUCT_REVIEW_FIELDS = ["reviewNote", "reviewedBy", "reviewedAt", "policyReview"];
 
 
